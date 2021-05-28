@@ -1,0 +1,5 @@
+# not really anything to building this -- compile it,
+# and strip it. create fifo for printer emulation.
+gcc -o la36 -Os la36.c
+strip la36
+mkfifo la36_in
