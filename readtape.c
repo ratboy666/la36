@@ -19,7 +19,7 @@
  * *    * ****** ****** ******  ****
  *
  * PUNMSG punches 17 leading 00 bytes, and 30 trailing 00 bytes, so
- * we skip leading 00, and also stop if 00 count >= 3
+ * we skip leading 00, and also stop if 00 count >= 9
  *
  * MSG contains:
  *
@@ -36,32 +36,37 @@
  */
 
 #include <stdio.h>
-
-#define LL 80
+#include <stdlib.h>
 
 int main(int ac, char **av) {
-    int i, c, z;
-    char strip1[LL + 1];
-    char strip2[LL + 1];
-    char strip3[LL + 1];
-    char strip4[LL + 1];
-    char strip5[LL + 1];
-    char strip6[LL + 1];
-    char strip7[LL + 1];
-    char strip8[LL + 1];
+    int i, c, z, n;
+    char *strip1, *strip2, *strip3, *strip4;
+    char *strip5, *strip6, *strip7, *strip8;
 
-    for (i = 0; i < LL; ++i)
-	strip1[i] =
-	strip2[i] =
-	strip3[i] =
-	strip4[i] =
-	strip5[i] =
-	strip6[i] =
-	strip7[i] =
-	strip8[i] = ' ';
+    n = 80;
+    if (ac > 1) {
+	if (av[1][0] == '-') {
+	    fprintf(stderr, "readtape [n] <file\n");
+	    fprintf(stderr, "   display printable leader on tape file\n");
+	    fprintf(stderr, "   n is maximum display columns (must be >= 40)\n");
+	    return 1;
+	}
+	n = atoi(av[1]);
+    }
+    if (n < 40) {
+	fprintf(stderr, "n must be >= 40\n");
+	return 1;
+    }
+    strip1 = malloc(n + 1); strip2 = malloc(n + 1);
+    strip3 = malloc(n + 1); strip4 = malloc(n + 1);
+    strip5 = malloc(n + 1); strip6 = malloc(n + 1);
+    strip7 = malloc(n + 1); strip8 = malloc(n + 1);
+    for (i = 0; i < n; ++i)
+	strip1[i] = strip2[i] = strip3[i] = strip4[i] =
+	strip5[i] = strip6[i] = strip7[i] = strip8[i] = ' ';
     while ((c = getchar()) == 0)
 	;
-    for (i = z = 0; (i < LL) && (c != EOF) && (z < 3); ++i) {
+    for (i = z = 0; (i < n) && (c != EOF) && (z < 10); ++i) {
 	if (c & 0x01) strip1[i] = '*';
 	if (c & 0x02) strip2[i] = '*';
 	if (c & 0x04) strip3[i] = '*';
@@ -76,22 +81,10 @@ int main(int ac, char **av) {
 	else
 	    z = 0;
     }
-    strip1[i] =
-    strip2[i] =
-    strip3[i] =
-    strip4[i] =
-    strip5[i] =
-    strip6[i] =
-    strip7[i] =
-    strip8[i] = '\0';
-    printf("%s\n", strip1);
-    printf("%s\n", strip2);
-    printf("%s\n", strip3);
-    printf("%s\n", strip4);
-    printf("%s\n", strip5);
-    printf("%s\n", strip6);
-    printf("%s\n", strip7);
-    printf("%s\n", strip8);
+    strip1[i] = strip2[i] = strip3[i] = strip4[i] =
+    strip5[i] = strip6[i] = strip7[i] = strip8[i] = '\0';
+    printf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n", strip1, strip2, strip3, strip4,
+		                               strip5, strip6, strip7, strip8);
     return 0;
 }
 
