@@ -1,0 +1,105 @@
+la36
+
+la36 is a terminal and a printer emulation. It is derived from a program
+named greenbar, written in 2013 by Egan Ford.
+
+To use la36 as a printer:
+
+	la36 -i file -h -n
+
+-i file inputs from file, which can be a file or a fifo (man mkfifo)
+In printer mode, there is no keyboard control. -h "holds" the display
+on exit, and -n translates unix \n to \r\n.
+
+As a note - la36 requires xterm and sox. It restarts itself with xterm,
+if xterm is not the terminal emulator currently in use. sox is used to
+provide audio. The aiff and wav files should be copied to
+/usr/local/share/la36 xterm should be available at /usr/bin/xterm and
+the sox "play" command at /usr/bin/play
+
+la36 requires its font files(otf and ttf_ be installed. In most Linux
+systems, these go to ~/.fonts
+
+In printer mode, all options must be specified on the command line.
+
+
+la36 [-q] [-u] [-h] [-x] [-t trigger] [-c cps] [-f len] [-1] [-2] [-3] [-n]
+     [-e ] [-d device]
+
+  -d device  serial device
+  -i file    input file/fifo
+  -q         quiet (no sound)
+  -u         uppercase
+  -h         hold after exit
+  -x         force xterm relaunch
+  -z char    set trigger (default A)
+  -c cps     set cps 10..4000 (default 30)
+  -f length  set form length
+  -1         use font 1 (Monaco)
+  -2         set form 2 (mnicmp)
+  -3         set form 3 (SV Basic Manual)
+  -n         translate \n to \r\n
+  -e         local echo
+  -t         enable asr (^Q/^S, ^R/^T
+  -?         this help
+
+You must choose one of -i or -d. If -i is used, -h (hold) is very useful, as
+is -n, because the data is probably unix (with newlines only).
+
+
+
+To use la36 as a terminal:
+
+	la36 -d /dev/ttyUSB0
+
+When in terminal mode ^A (control A) is a trigger. ^AH displays help,
+(and status, and then waits for a key -- note the status line for
+prompts!)
+
+la36 has quite a few options in terminal mode. The emulated speed can
+be changed from 10 to 4000 characters per second (audio only works
+at 120cps and under). Form length can be set (0 is continous), font
+can be selected 1 = Monaro, 2 = mnicmp and 3 = SVBasicManual.
+I like SVBasicManual, as this is VERY close to the Diablo 630 font
+"back in the day". mnicmp is very close to the la36 font.
+
+Local line feed and form feeds can be done. Upper-case only mode can
+be specified (Teletype style operation). Files can be sent and
+received (even ^Q/^S, ^R/^T asr operation if desired, but that is
+not extensively tested yet).
+
+^A! followed by enter for a shell (or local command). ^ABcommand
+executes a command, with stdin/stdout linked to the serial port.
+That is meant to run rx, sx and other transfer commands.
+la36 can be "silenced" with ^AQ.
+
+The ^AZ command dumps the receive queue. la36 emulates a terminal
+at, say, 30 cps, but the connection may be USB at an effective
+115200. If this happens, data is queued up, and may take a LONG
+time to print. ^AZ dumps the queued data, and allows la36 to
+"catch up".
+
+I used Mike Douglas' PUNMSG (with SIO output added) to punch
+readable tape leaders from my Altair-Duino. Program readtape.c
+will display that data in a human readable form. This was done
+as part of the receive data function test.
+
+la36 does overprint to attribute conversion. Bold, underscore and
+strike-through are generated. This make la36 a "fun" device for
+WordStar printing!
+
+Note that the trigger character (^A) cannot be changed after la36
+is started. The -t option (-t _ for example) is the only way to
+set the trigger. As well, the -x option forces the relaunch under
+xterm, is only available from the command line.
+
+The send/receive options and commands are too complicated and
+require a bit of re-thinking to simplify. Suggestions welcome!
+Note that we want to support manual tape operations, ASR tape
+operations mapping tapes/cassettes to disk files. In a way
+that resembles old school ASR-33 or dual cassette operations.
+Note that I do not (yet) attempt to support ^E ENQ / WRU 
+functions. Even if available, most people disabled those
+functions "back in the day" -- due to tape punch/read issues.
+(as far as I recall, anyway).
+

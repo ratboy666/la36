@@ -18,8 +18,9 @@
 
 #define NOTHING
 
-#define VERSION "0.79"
+#define VERSION "0.85"
 #define MAXC    132
+#define SHARE   "/usr/local/share/la36/"
 
 /* UTF-8 characters
  */
@@ -38,6 +39,8 @@
  * this is 1 em + 1 thin wide. -- change this per your
  * desire. There is no perfect, or even good way, of doing
  * this...
+ *
+ * Actually, we can use the "invisible" attribute
  */
 #define CASSETTE "➿"
 #define CASSETTE_WHITE EM TH
@@ -52,9 +55,11 @@ int            quiet      = 0;
 int            plen       = 0;
 char           trigger    = 'A';
 char          *device     = NULL;
+char          *input      = NULL;
 int            font       = 0;
 int            lfonly     = 0;
 int            echo       = 0;
+int            asr        = 0;
 
 /* Global variables
  */
@@ -75,6 +80,10 @@ int            rcv_e      = 1;
 int            snd_e      = 0;
 int            rcv_n      = 0;
 int            snd_n      = 0;
+int            rcv_f      = 0;
+int            snd_f      = 0;
+char          *rcvname    = NULL;
+char          *sndname    = NULL;
 
 char          *fnames[]   = { "Monaco", "Monaco", "mnicmp", "SV Basic Manual" };
 
@@ -115,7 +124,7 @@ void status(char *s, ...) {
 /* "Base" status - this is just the application name
  */
 void status0(void) {
-    status("la36/asr " VERSION " " EM EN);
+    status("la36 " VERSION);
 }
 
 void cursoroff(void);
@@ -182,16 +191,17 @@ void xterm(int argc, char **argv) {
 /* Give usage information
  */
 void usage(void) {
-    printf("la36/asr " VERSION "\n\n");
+    printf("la36 " VERSION "\n\n");
     fprintf(stderr, "la36 [-q] [-u] [-h] [-x] [-t trigger] [-c cps] "
 		    "[-f len] [-1] [-2] [-3] [-n]\n");
     fprintf(stderr, "     [-e ] [-d device]\n\n");
     fprintf(stderr, "  -d device  serial device\n");
+    fprintf(stderr, "  -i file    input file/fifo\n");
     fprintf(stderr, "  -q         quiet (no sound)\n");
     fprintf(stderr, "  -u         uppercase\n");
     fprintf(stderr, "  -h         hold after exit\n");
     fprintf(stderr, "  -x         force xterm relaunch\n");
-    fprintf(stderr, "  -t char    set trigger (default %c)\n", trigger);
+    fprintf(stderr, "  -z char    set trigger (default %c)\n", trigger);
     fprintf(stderr, "  -c cps     set cps 10..4000 (default %d)\n", cps);
     fprintf(stderr, "  -f length  set form length\n");
     fprintf(stderr, "  -1         use font 1 (Monaco)\n");
@@ -199,13 +209,13 @@ void usage(void) {
     fprintf(stderr, "  -3         set form 3 (SV Basic Manual)\n");
     fprintf(stderr, "  -n         translate \\n to \\r\\n\n");
     fprintf(stderr, "  -e         local echo\n");
+    fprintf(stderr, "  -t         enable asr (^Q/^S, ^R/^T\n");
     fprintf(stderr, "  -?         this help\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "Default is to read from fifo \"la36_in\" if -d is "
-		    "not given. In that case,\n");
-    fprintf(stderr, "-h (hold) is very useful, as is -n, because the "
-		    "data is probably unix (with\n");
-    fprintf(stderr, "newlines only).\n");
+    fprintf(stderr, "You must choose one of -i or -d. If -i is used,"
+		    " -h (hold) is very useful, as\n");
+    fprintf(stderr, "is -n, because the data is probably unix (with");
+    fprintf(stderr, " newlines only).\n");
     exit(1);
 }
 
@@ -214,7 +224,7 @@ void usage(void) {
 void options(int argc, char **argv) {
     int ch;
     opterr = 1;
-    while ((ch = getopt(argc, argv, "?n123uhxd:t:c:f:")) != -1)
+    while ((ch = getopt(argc, argv, "?n123uhxtd:z:c:f:i:")) != -1)
         switch (ch) {
 	case 'e':
 	    echo = 1;
@@ -240,10 +250,13 @@ void options(int argc, char **argv) {
         case 'x':
             xforce = 1;
             break;
+	case 't':
+	    asr = 1;
+	    break;
         case 'd':
             device = strdup(optarg);
             break;
-	case 't':
+	case 'z':
 	    trigger = toupper(optarg[0]);
 	    break;
 	case 'c':
@@ -251,6 +264,9 @@ void options(int argc, char **argv) {
 	    break;
 	case 'f':
 	    plen = atoi(optarg);
+	    break;
+	case 'i':
+	    input = strdup(optarg);
 	    break;
 	case '?':
 	default:
@@ -375,6 +391,7 @@ void play(char *soundfile) {
 	return;
     if (!quiet) {
         strcpy(cmd, "DISPLAY= /usr/bin/play -q ");
+	strcat(cmd, SHARE);
 	strcat(cmd, soundfile);
 	strcat(cmd, " &");
 	system(cmd);
@@ -562,7 +579,7 @@ void help(void) {
     int n;
     char c;
     cursoroff();
-    printf("\r\n\033[0m\r\nla36/asr " VERSION "\r\n");
+    printf("\r\n\033[0m\r\nla36 " VERSION "\r\n");
     printf("\r\n");
     printf("-- general                       -- send/receive\r\n");
     printf("  %c  - send ^%c                     s  - %s\r\n",
@@ -573,11 +590,11 @@ void help(void) {
     printf("  x  - exit                        p  - local receive echo (now %s)\r\n", rcv_e ? "on " : "off");
     printf("  q  - toggle sound (now %s)      o  - local send echo (now %s)\r\n",
         quiet ? "off" : "on ", snd_e ? "on " : "off");
-    printf("  u  - toggle upper (now %s)    -- shell\r\n",
-        upper ? "on " : "off");
-    printf("  c  - cps (now %4d)              !  - shell\r\n", cps);
-    printf(" ' ' - resume terminal             b  - execute with serial\r\n");
-    printf("-- local\r\n");
+    printf("  u  - toggle upper (now %s)      t  - automatic send/receive (now %s)\r\n", 
+        upper ? "on " : "off", asr ? "on " : "off");
+    printf("  c  - cps (now %4d)            -- shell\r\n", cps);
+    printf(" ' ' - resume terminal             !  - shell\r\n");
+    printf("-- local                           b  - execute with serial\r\n");
     printf("  f  - form length (now %d)\r\n", plen);
     printf("  j  - local linefeed\r\n");
     printf("  l  - local formfeed\r\n");
@@ -678,6 +695,9 @@ int command(void) {
             cr();
             lf();
             return 1;
+        case 't': case 'T': case 'T' - '@':
+	    asr ^= 1;
+	    break;
         case 'q': case 'Q': case 'Q' - '@':
 	    quiet ^= 1;
 	    break;
@@ -739,28 +759,44 @@ int command(void) {
 	case 's': case 'S': case 'S' - '@':
 	    if (sndtape) {
 		fclose(sndtape);
+		free(sndname);
+		sndname = NULL;
 		sndtape = NULL;
+		snd_f = 0;
 		if ((sndtape == NULL) && (rcvtape == NULL))
                     status0();
 	    } else {
 	        status("send ?");
 	        s = reads("send: ");
+		sndname = strdup(s);
 		sndtape = fopen(s, "r");
 		snd_n = 0;
+		if (!asr)
+		    snd_f = 1;
+		else
+		    snd_f = 0;
 		ends();
 	    }
 	    break;
 	case 'r': case 'R': case 'R' - '@':
 	    if (rcvtape) {
 		fclose(rcvtape);
+		free(rcvname);
+		rcvname = NULL;
 		rcvtape = NULL;
+		rcv_f = 0;
 		if ((sndtape == NULL) && (rcvtape == NULL))
                     status0();
 	    } else {
 	        status("receive ?");
 	        s = reads("receive: ");
+		rcvname = strdup(s);
 		rcvtape = fopen(s, "w");
 		rcv_n = 0;
+		if (!asr)
+		    rcv_f = 1;
+		else
+		    rcv_f = 0;
 		ends();
 	    }
 	    break;
@@ -795,10 +831,34 @@ void tick(void) {
     if (rcvtape || sndtape) {
         t ^= 1;
 	s = t ? CASSETTE : CASSETTE_WHITE;
-	status("la36/asr " VERSION " r:%06d / s:%06d %s",
-	       rcv_n, snd_n, s);
+	if ((snd_f | rcv_f) == 0)
+	    s = CASSETTE_WHITE;
+	status("la36%s " VERSION " r:%s %06d / s:%s %06d %s",
+	       asr ? "/asr" : "",
+	       rcvname ? rcvname : "", rcv_n,
+	       sndname ? sndname : "", snd_n, s);
     }
 }
+
+/* Handle asr functions. Done by complicated relay logic in the
+ * ASR-33.
+ */
+int handle_asr(int c) {
+    if (asr == 0)
+	return 0;
+    if (rcvtape && (c == ('Q' - '@'))) { /* start reader */
+	rcv_f = 1;
+    } else if (rcvtape && (c == ('S' - '@'))) { /* stop reader */
+	rcv_f = 0;
+    } else if (sndtape && (c == ('R' - '@'))) { /* start punch */
+	snd_f = 1;
+    } else if (sndtape && (c == ('T' - '@'))) { /* stop punch */
+	snd_f = 0;
+    } else
+        return 0;
+    return 1;
+}
+
 
 /* Terminal loop, transfer data from operator terminal
  * to serial and serial to terminal.
@@ -864,6 +924,8 @@ void terminal(void) {
 		if (c == (trigger - '@')) {
 		    if (command())
 			return;
+		} else if (handle_asr(c)) {
+	            ;
 		} else {
 		    if (upper)
 		        c = toupper(c);
@@ -875,24 +937,28 @@ void terminal(void) {
 	} else if (FD_ISSET(dev_in, &fds)) {
 	    n = read(dev_in, &c, 1);
 	    if (n == 1) {
-		if (rcvtape) {
+                if (handle_asr(c)) {
+		    ;
+		} else if (rcvtape && rcv_f) {
 		    ++rcv_n;
 		    fputc(c, rcvtape);
 		}
 		if (upper)
 		    c = toupper(c);
-		if (rcvtape) {
+		if (rcvtape && rcv_f) {
 		    if (rcv_e)
 		        print(c);
 		} else
 		    print(c);
 	    }
 	} else {
-	    if (sndtape) {
+	    if (sndtape && snd_f) {
 		n = fgetc(sndtape);
 		if (n == EOF) {
 		    fclose(sndtape);
 		    sndtape = NULL;
+		    free(sndname);
+		    sndname = NULL;
 		} else {
 		    c = n;
 		    if (snd_e)
@@ -908,13 +974,14 @@ void terminal(void) {
 /* Signon giving option feedback
  */
 void signon(void) {
-    printf("la36/asr " VERSION " - %s mode\n\n",
+    printf("la36 " VERSION " - %s mode\n\n",
 	fifo == 0 ? "terminal" : "printer");
     if (fifo == 0) {
         printf("Hard copy terminal emulator with "
 	       "Automatic send/receive (ASR)\n\n");
         printf("  Trigger ^%c\n", trigger);
         printf("  ^%cH for help\n", trigger);
+        printf("  ASR is %s\n", asr ? "on" : "off");
     } else
         printf("Hard copy printer emulator\n\n");
     printf("  %d cps\n", cps);
@@ -931,11 +998,19 @@ void signon(void) {
     printf("\n");
 }
 
-/* la36/asr main
+/* la36 main
  */
 int main(int argc, char **argv) {
 
     options(argc, argv);
+
+    if ((device == NULL) && (input == NULL)) {
+	fprintf(stderr, "either -d device must be used, or -i file\n");
+	fprintf(stderr, "la36 does not use stdin\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "la36 -? for help\n");
+	exit(1);
+    }
 
     xterm(argc, argv);
 
@@ -950,31 +1025,26 @@ int main(int argc, char **argv) {
     if (plen < 0)
 	plen = 0;
 
+    signon();
     if (device) {
         dev_out = open(device, O_RDWR);
 	if (dev_out < 0) {
-	    fprintf(stderr, "cannot open device %s\n", device);
+	    fprintf(stderr, "can\'t open device %s\n", device);
 	    exit(1);
 	}
 	dev_in = dev_out;
-    } else {
+    } else if (input) {
 	fifo = 1;
-	signon();
-        printf("  Waiting for fifo...\n");
-	std_in = open("la36_in", O_RDONLY);
-	printf("  ...Connected\n");
-
+        printf("  Waiting for file/fifo...\n");
+	std_in = open(input, O_RDONLY);
 	if (std_in < 0) {
-	    fprintf(stderr, "either -d device must be used, or a fifo named "
-                            "la36_in must be available\n");
+	    fprintf(stderr, "can\'t open %s for reading\n", input);
 	    exit(1);
 	}
+	printf("  ...Connected\n");
     }
 
     ioctl(std_out, TIOCGWINSZ, &win);
-
-    if (fifo == 0)
-        signon();
 
     printf(
         "\033[?25l"
