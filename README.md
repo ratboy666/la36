@@ -8,14 +8,14 @@ utility. Greenbar shows us that the terminal emulator itself can
 be used to emulate the printing device with the aid of a small
 amount of code for sound, and background. la36 is both a terminal
 emulator, and a printer emulator. If called with "-d device", la36
-is a terminal emulator. If the "-d device" option is not used,
-la36 tries to open a fifo named "la36\_in" and reads from the fifo.
-la36 is then only a data sink. This is "printer mode". In printer
+is a terminal emulator. If the "-d device" option is not used, "-i file"
+must be used. la36 is then only a data sink. This is "printer mode". In printer
 mode there is no command menu available. All options must be
 preset on the command line:
 
-      ./la36 -h -n &
-      ls \>la36\_in
+      mkfifo la36_in
+      ./la36 -i la36_in-h -n &
+      ls >la36_in
 
 Note that the -h and -n options are especially useful in this mode.
 -h is the hold option. -hold is sent to xterm, and the window persists
@@ -34,6 +34,7 @@ Notes:
 
 In terminal mode, ^A (or whatever trigger character is defined)
 activates commands. ^AH will give help on the available commands.
+Enter to leave help and return to terminal.
 
 In terminal mode, there may be a speed imbalance. The emulator will
 work at the cps setting, but the serial link may be faster. In that
@@ -43,6 +44,8 @@ input queue.
 ^AB is a special command mode; standard in and out are set to the
 serial device and then the command is run. This is useful if (for
 example) rx or sx are desired.
+
+^AR and ^AS are file transfer (read/punch).
 
 Requirements:
 
