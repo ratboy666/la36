@@ -18,9 +18,17 @@
 
 #define NOTHING
 
-#define VERSION "0.85"
+#define VERSION "0.87"
 #define MAXC    132
 #define SHARE   "/usr/local/share/la36/"
+
+/* Display
+ *
+ * Uncomment one of the display sizes.
+ */
+// #define DISPLAY_1920x1080
+#define DISPLAY_1600x900
+//#define DISPLAY_1024x768
 
 /* UTF-8 characters
  */
@@ -96,6 +104,7 @@ struct termios newt;
 /* Select font
  */
 void selfont(void) {
+#ifdef DISPLAY_1920x1080
     switch (font) {
     case 1:
         printf("\033]50;Monaco:size=16\007");
@@ -107,6 +116,33 @@ void selfont(void) {
 	printf("\033]50;SV Basic Manual:size=16\007");
 	break;
     }
+#endif
+#ifdef DISPLAY_1600x900
+    switch (font) {
+    case 1:
+        printf("\033]50;Monaco:size=12\007");
+	break;
+    case 2:
+	printf("\033]50;mnicmp:size=16\007");
+	break;
+    case 3:
+	printf("\033]50;SV Basic Manual:size=12\007");
+	break;
+    }
+#endif
+#ifdef DISPLAY_1024x768
+    switch (font) {
+    case 1:
+        printf("\033]50;Monaco:size=7\007");
+	break;
+    case 2:
+	printf("\033]50;mnicmp:size=10\007");
+	break;
+    case 3:
+	printf("\033]50;SV Basic Manual:size=7\007");
+	break;
+    }
+#endif
 }
 
 /* Update xterm status bar
@@ -166,7 +202,15 @@ void xterm(int argc, char **argv) {
     if (xforce || (getenv("XTERM_VERSION") == NULL)) {
         strcpy(cmd, "/usr/bin/xterm");
         strcat(cmd, " -ti 340 -sl 20480");
+#ifdef DISPLAY_19290x1080
         strcat(cmd, " -fa Monaco -fs 16");
+#endif
+#ifdef DISPLAY_1600x900
+        strcat(cmd, " -fa Monaco -fs 12");
+#endif
+#ifdef DISPLAY_1024x768
+        strcat(cmd, " -fa Monaco -fs 7");
+#endif
         strcat(cmd, " -xrm \"XTerm*deleteIsDEL: true\"");
         strcat(cmd, " -xrm \"XTerm*allowTitleOps: true\"");
         strcat(cmd, " -xrm \"XTerm*allowFontOps: true\"");
@@ -192,9 +236,9 @@ void xterm(int argc, char **argv) {
  */
 void usage(void) {
     printf("la36 " VERSION "\n\n");
-    fprintf(stderr, "la36 [-q] [-u] [-h] [-x] [-t trigger] [-c cps] "
+    fprintf(stderr, "la36 [-q] [-u] [-h] [-x] [-z trigger] [-c cps] "
 		    "[-f len] [-1] [-2] [-3] [-n]\n");
-    fprintf(stderr, "     [-e ] [-d device]\n\n");
+    fprintf(stderr, "     [-e ] [-t] -d device | -i file \n\n");
     fprintf(stderr, "  -d device  serial device\n");
     fprintf(stderr, "  -i file    input file/fifo\n");
     fprintf(stderr, "  -q         quiet (no sound)\n");
@@ -209,7 +253,7 @@ void usage(void) {
     fprintf(stderr, "  -3         set form 3 (SV Basic Manual)\n");
     fprintf(stderr, "  -n         translate \\n to \\r\\n\n");
     fprintf(stderr, "  -e         local echo\n");
-    fprintf(stderr, "  -t         enable asr (^Q/^S, ^R/^T\n");
+    fprintf(stderr, "  -t         enable asr (^Q/^S, ^R/^T)\n");
     fprintf(stderr, "  -?         this help\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "You must choose one of -i or -d. If -i is used,"
@@ -527,11 +571,9 @@ void bs(void) {
  * change, because the DECwriter had settable tabs.
  */
 void tab(void) {
-    int i;
-    i = 8 - (col % 8);
-    col += i;
-    while (i--)
+    do /* Thank you, Hector Peraza ! */
 	p(' ');
+    while (col & 7);
 }
 
 /* Print a character, interpret controls. In future, may try to
@@ -885,7 +927,7 @@ void terminal(void) {
 
         for (;;) {
 	    n = read(std_in, &c, 1);
-	    if (n == 0)
+	    if (n <= 0)
 		return;
 	    if (n == 1) {
 	        if (upper)
@@ -1005,7 +1047,8 @@ int main(int argc, char **argv) {
     options(argc, argv);
 
     if ((device == NULL) && (input == NULL)) {
-	fprintf(stderr, "either -d device must be used, or -i file\n");
+	fprintf(stderr, "la36 " VERSION "\n");
+	fprintf(stderr, "Either -d device must be used, or -i file\n");
 	fprintf(stderr, "la36 does not use stdin\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "la36 -? for help\n");

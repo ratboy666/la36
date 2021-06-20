@@ -103,3 +103,6 @@ functions. Even if available, most people disabled those
 functions "back in the day" -- due to tape punch/read issues.
 (as far as I recall, anyway).
 
+Added display support for 1920x1080, 1600x900 and 1024x768
+Edit la36.c to select a resolution.
+
