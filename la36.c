@@ -18,7 +18,7 @@
 
 #define NOTHING
 
-#define VERSION "0.87"
+#define VERSION "0.89"
 #define MAXC    132
 #define SHARE   "/usr/local/share/la36/"
 
@@ -268,8 +268,11 @@ void usage(void) {
 void options(int argc, char **argv) {
     int ch;
     opterr = 1;
-    while ((ch = getopt(argc, argv, "?n123uhxtd:z:c:f:i:")) != -1)
+    while ((ch = getopt(argc, argv, "?qen123uhxtd:z:c:f:i:")) != -1)
         switch (ch) {
+	case 'q':
+	    quiet = 1;
+	    break;
 	case 'e':
 	    echo = 1;
 	    break;
@@ -340,6 +343,8 @@ void wc(int c) {
         printf("\033[4m");
     if (c & 0x400) /* strikethrough */
         printf("\033[9m");
+    if (c & 0x800) /* italic */
+	printf("\033[3m");
     printf("%c", c & 0x7f ? c & 0x7f : ' ');
     if (c & 0xf00) { /* normal */
         printf("\033[0m");
@@ -378,8 +383,10 @@ int mc(int ca, int ch) {
     if (ch == '_') { c = ca; a |= 0x200; goto rtn; }
     if (ca == '-') { c = ch; a |= 0x400; goto rtn; }
     if (ch == '-') { c = ca; a |= 0x400; goto rtn; }
-    c = ca;
-    a |= 0x100;
+    // c = ca;
+    // a |= 0x100;
+    c = ch;
+    a |= 0x800;
 rtn:
     return c | a;
 }
@@ -544,12 +551,11 @@ void p(char c) {
     /* cursoroff(); */
     lbuf[col] = mc(lbuf[col], c);
     wc(lbuf[col]);
-    ++col;
-    cursor();
-    if (col >= MAXC) {
+    if (++col >= MAXC) {
 	cr();
 	lf();
     }
+    cursor();
     usleep(speed);
 }
 
@@ -617,7 +623,7 @@ void dq(void) {
 /* Interactive help. ^AH provides a summary of commands, and also
  * details current settings.
  */
-void help(void) {
+char help(void) {
     int n;
     char c;
     cursoroff();
@@ -645,15 +651,18 @@ void help(void) {
     printf("  3  - select daisy wheel font\r\n");
     printf("  e  - local echo (now %s)\r\n", echo ? "on " : "off");
     printf("  z  - dump receive queue\r\n");
-    status("return to continue ?");
+    status("space to continue (or command)?");
     do {
 	usleep(1000);
 	n - read(0, &c, 1);
     } while (n == -1);
-    status0();
-    col = 0;
-    margin();
-    lf2();
+    if (c != ' ') {
+        status0();
+        col = 0;
+        margin();
+        lf2();
+    }
+    return c;
 }
 
 /* Execute a command in a shell -- with stdin and stdout directed
@@ -712,7 +721,7 @@ int command(void) {
     /* Get the next key. We use a busy loop polling for the second
      * key.
      */
-    status("command (h for help) ?");
+    status("command (h for help/menu) ?");
     do {
 	usleep(1000);
 	n - read(0, &c, 1);
@@ -732,6 +741,7 @@ int command(void) {
 
     /* Interpret the command character.
      */
+top:
     switch (c) {
         case 'x': case 'X': case 'X' - '@':
             cr();
@@ -758,7 +768,9 @@ int command(void) {
 	    ff();
 	    break;
         case 'h': case 'H': case 'H' - '@': case '?':
-	    help();
+	    c = help();
+	    goto top;
+	case ' ':
 	    break;
         case '1':
 	    font = 1;

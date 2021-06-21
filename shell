@@ -1,0 +1,13 @@
+#!/bin/bash
+#
+# shell
+#
+# Create a login shell on a pty so la36 can be used as a login terminal
+#
+# This is a simple example of using la36 as a terminal emulator.
+
+export TERM=dumb
+sudo socat PTY,link=term,wait-slave EXEC:/bin/login,pty,setsid,setpgid,stderr,ctty &
+sleep 1
+sudo chmod 777 term
+./la36 -d term -q -c 120
