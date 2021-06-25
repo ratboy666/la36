@@ -113,3 +113,38 @@ emulator, adding the fifo feature. I am still looking for an
 inexpensive Silent 700/703, but this does the trick for now (and, no
 wear and tear on a vintage printing terminal).
 
+
+A Note on "shell":
+
+shell is a script that uses socat:
+
+  xport TERM=dumb
+  sudo socat PTY,link=term,wait-slave EXEC:/bin/login,pty,setsid,setpgid,stderr,ctty &
+  sleep 1
+  sudo chmod 777 term
+  ./la36 -d term -q -c 120
+ 
+ socat copies data between two, um, things.  PTY creates a PTY (psuedo-terminal), that
+ is a device that la36 can use (and SCREEN, minicom, picocom, etc). The other side
+ is EXEC of the login program, which requests a login, and starts a terminal session.
+ 
+ That can, of course, be any program! Or a socket.. (or other things). Without further ado:
+ Using zxcc, my R program, and MBASIC.COM in /usr/local/lib/cpm/bin80/command.lbr
+ 
+ mbasic contains
+   zxcc r -MBASIC $@
+   
+then
+
+  socat PTY,link=term,wait-slave EXEC:/home/fred/bin/mbasic &
+  sleep 1
+  sudo chmod 777 term
+  la36 -d term -c 30
+
+runs the Microsoft MBASIC interpreter under zxcc, as if on a 30 cps printing terminal.
+l
+
+ 
+ 
+ 
+
