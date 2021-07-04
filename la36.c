@@ -18,7 +18,7 @@
 
 #define NOTHING
 
-#define VERSION "0.89"
+#define VERSION "0.90"
 #define MAXC    132
 #define SHARE   "/usr/local/share/la36/"
 
@@ -68,6 +68,7 @@ int            font       = 0;
 int            lfonly     = 0;
 int            echo       = 0;
 int            asr        = 0;
+int            strip      = 0;
 
 /* Global variables
  */
@@ -105,6 +106,7 @@ struct termios newt;
  */
 void selfont(void) {
 #ifdef DISPLAY_1920x1080
+#define DSIZE "1920x1080"
     switch (font) {
     case 1:
         printf("\033]50;Monaco:size=16\007");
@@ -118,6 +120,7 @@ void selfont(void) {
     }
 #endif
 #ifdef DISPLAY_1600x900
+#define DSIZE "1600x900"
     switch (font) {
     case 1:
         printf("\033]50;Monaco:size=12\007");
@@ -131,6 +134,7 @@ void selfont(void) {
     }
 #endif
 #ifdef DISPLAY_1024x768
+#define DSIZE "1024x768"
     switch (font) {
     case 1:
         printf("\033]50;Monaco:size=7\007");
@@ -238,7 +242,7 @@ void usage(void) {
     printf("la36 " VERSION "\n\n");
     fprintf(stderr, "la36 [-q] [-u] [-h] [-x] [-z trigger] [-c cps] "
 		    "[-f len] [-1] [-2] [-3] [-n]\n");
-    fprintf(stderr, "     [-e ] [-t] -d device | -i file \n\n");
+    fprintf(stderr, "     [-e ] [-t] [-7] -d device | -i file \n\n");
     fprintf(stderr, "  -d device  serial device\n");
     fprintf(stderr, "  -i file    input file/fifo\n");
     fprintf(stderr, "  -q         quiet (no sound)\n");
@@ -254,6 +258,7 @@ void usage(void) {
     fprintf(stderr, "  -n         translate \\n to \\r\\n\n");
     fprintf(stderr, "  -e         local echo\n");
     fprintf(stderr, "  -t         enable asr (^Q/^S, ^R/^T)\n");
+    fprintf(stderr, "  -7         strip incoming bit 7\n");
     fprintf(stderr, "  -?         this help\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "You must choose one of -i or -d. If -i is used,"
@@ -268,8 +273,11 @@ void usage(void) {
 void options(int argc, char **argv) {
     int ch;
     opterr = 1;
-    while ((ch = getopt(argc, argv, "?qen123uhxtd:z:c:f:i:")) != -1)
+    while ((ch = getopt(argc, argv, "?7qen123uhxtd:z:c:f:i:")) != -1)
         switch (ch) {
+	case '7':
+	    strip = 1;
+	    break;
 	case 'q':
 	    quiet = 1;
 	    break;
@@ -334,6 +342,34 @@ void setcolor(int c) {
 }
 
 /* Display character, with attributes ("wide character")
+ *
+ * Exploiting UTF-8, we could combine these:
+ * combining long solidus   ̸
+ * combining tilde  ̃
+ * combining cicumflex  ̂
+ * combining dot below  ̣
+ *
+ * These probably will not work in most fonts -- need to "try and see"
+ *
+ * But, to prepare for the possible implementation:
+ *
+ * wc character codes:
+ *   a bcd efgh 0 1234567
+ *
+ *   The character value is in bits 1..7, with 0 being ' '
+ *   bit '0' is not used (may be one more attribute, or char set extension)
+ *   h = bold
+ *   g = underline
+ *   f = strikethrough
+ *   e = italic
+ *   b..d = combiner
+ *      000 none
+ *      001 /
+ *      010 ~
+ *      011 ^
+ *      100 .
+ *   bit 'a' is not used.
+ *
  */
 void wc(int c) {
     printf(" \010");
@@ -586,6 +622,13 @@ void tab(void) {
  * interpret ESC for SIXEL graphics.
  */
 void print(char c) {
+    /* MBASIC NEEDS THIS FOR FILES COMMAND! MBASIC sets bit 7 high
+     * on the last characters of each extension with the FILES
+     * command. On CP/M, bit 7 is usually stripped. We do NOT
+     * display non-ascii, so the characters are then ignored.
+     */
+    if (strip)
+        c &= 0x7F;
     if (c == '\f')                     ff();
     else if (c == '\r')                cr();
     else if (c == '\a')                bell();
@@ -651,6 +694,7 @@ char help(void) {
     printf("  3  - select daisy wheel font\r\n");
     printf("  e  - local echo (now %s)\r\n", echo ? "on " : "off");
     printf("  z  - dump receive queue\r\n");
+    printf("  7  - 7 bit/8 bit toggle (now %d)\n", strip ? 7 : 8);
     status("space to continue (or command)?");
     do {
 	usleep(1000);
@@ -783,6 +827,9 @@ top:
 	case '3':
 	    font = 3;
 	    selfont();
+	    break;
+        case '7':
+	    strip ^= 1;
 	    break;
         case '!':
 	    shell();
@@ -1049,6 +1096,8 @@ void signon(void) {
         printf("  Form length %d lines\n", plen);
     else
         printf("  Form continuous\n");
+    printf("  Data bits %d\n", strip ? 7 : 8);
+    printf("  la36 compiled for " DSIZE " pixel screen\n");
     printf("\n");
 }
 
