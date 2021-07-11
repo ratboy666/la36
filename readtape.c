@@ -38,10 +38,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef z80
+#include <sys.h>
+#endif
+
 int main(int ac, char **av) {
     int i, c, z, n;
     char *strip1, *strip2, *strip3, *strip4;
     char *strip5, *strip6, *strip7, *strip8;
+
+#ifdef z80
+    /* Expand arguments for HI-TECH C.
+     */
+    av = _getargs((char *)0x81, "readtape");
+    ac = _argc_;
+#endif
 
     n = 80;
     if (ac > 1) {
